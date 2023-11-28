@@ -1,0 +1,68 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+#define NUM_VILLAGES 3
+#define NUM_STREETS 4
+#define HOUSES_PER_STREET 15
+
+// Function to simulate house visit and data collection
+void simulateHouseVisit(int* localData) {
+    // Simulate collecting data for each house
+    // For the sake of simplicity, let's assume each process collects data for one house.
+    // Update localData with the counts
+    // ...
+
+    // For demonstration purposes, we'll just set some arbitrary values.
+    localData[0] = 1; // Members
+    localData[1] = 2; // Adult Males
+    localData[2] = 3; // Adult Females
+    localData[3] = 4; // Male Children
+    localData[4] = 5; // Female Children
+    localData[5] = 6; // Girl Children (attending school)
+}
+
+int main(int argc, char** argv) {
+    MPI_Init(&argc, &argv);
+
+    int world_rank, world_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+    // Check if there are enough processes for the simulation
+    if (world_size != NUM_STREETS) {
+        if (world_rank == 0) {
+            printf("This simulation requires %d processes.\n", NUM_STREETS);
+        }
+        MPI_Finalize();
+        return 1;
+    }
+
+    int localData[6] = {0};  // Array to store counts: members, adult males, adult females, male children, female children, girl children attending school
+
+    // Simulate house visits
+    simulateHouseVisit(localData);
+
+    // Data transfer to Robot#1
+    if (world_rank != 0) {
+        MPI_Send(localData, 6, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    } else {
+        // Robot#1 receives data from other robots
+        for (int i = 1; i < NUM_STREETS; ++i) {
+            int receivedData[6];
+            MPI_Recv(receivedData, 6, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+            // Aggregate data
+            for (int j = 0; j < 6; ++j) {
+                localData[j] += receivedData[j];
+            }
+        }
+
+        // Output final census data for the entire village
+        printf("Robot#1 - Village-wide Data: Members: %d, Adult Males: %d, Adult Females: %d, Male Children: %d, Female Children: %d, Girl Children (attending school): %d\n",
+               localData[0], localData[1], localData[2], localData[3], localData[4], localData[5]);
+    }
+
+    MPI_Finalize();
+    return 0;
+}
